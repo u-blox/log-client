@@ -1,0 +1,8 @@
+/** You must provide a log_enum_app.h file containing your
+ * application's log events.  This is a sample of the format.
+ * It must be kept in line with the strings in log_strings_app.h.
+ */
+    EVENT_INTERESTING_THING_1,
+    EVENT_INTERESTING_THING_2,
+    EVENT_FAILED_THING_1
+
