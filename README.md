@@ -34,14 +34,18 @@ The pattern of usage is as follows:
    logging buffer of size `LOG_STORE_SIZE` bytes; logging will begin at this point.
 
 4. If a file system is available:
+
    4.1 Call `initLogFile()` and pass in the path at which log files can be stored.
        Log files will be created with unique names (`xxxx.log`, where `xxxx` is a number
        between `0` and `9999`).
+
    4.2 Periodically call `writeLog()` so that the logged data can be written away to file.
 
 5. If a network interface is available as well as a file system:
+
    5.1 At startup, call `beginLogFileUpload()`.  This will check for any stored log
        files and upload them to the given server URL in a separate thread.
+
    5.2 At the server URL there must be a logging server application, an example of which can be
        found at https://github.com/u-blox/ioc-log, which receives and stores the logs.
 
