@@ -85,6 +85,19 @@ void LOG(LogEvent event, int parameter);
  */
 void initLog(void *pBuffer);
 
+/** Suspend logging (e.g. while sleeping).
+ */
+void suspendLog();
+
+/** Resume logging.
+ *
+ * @param  intervalUSeconds the time, in microseconds,
+ *         since suspendLog() was called, so that the
+ *         log time can be maintained.  If unknown,
+ *         use 0.
+ */
+void resumeLog(unsigned int intervalUSeconds);
+
 /** Start logging to file.
  *
  * @param pPath the path at which to create the log files.

@@ -82,6 +82,10 @@ static LogEntry const *gpLogFirstFull = NULL;
 // A logging timestamp.
 static Timer gLogTime;
 
+// An offset in the logging timestamp (may be non-zero
+// if logging has been suspended)
+static unsigned int gLogTimeOffset = 0;
+
 // A file to write logs to.
 static FILE *gpFile = NULL;
 
@@ -310,6 +314,19 @@ void initLog(void *pBuffer)
     LOG(EVENT_LOG_START, LOG_VERSION);
 }
 
+// Suspend logging.
+void suspendLog()
+{
+    gLogTime.stop();
+}
+
+// Resume logging.
+void resumeLog(unsigned int intervalUSeconds)
+{
+    gLogTimeOffset += intervalUSeconds;
+    gLogTime.start();
+}
+
 // Initialise the log file.
 bool initLogFile(const char *pPath)
 {
@@ -463,7 +480,7 @@ void stopLogFileUpload()
 void LOG(LogEvent event, int parameter)
 {
     if (gpLogNextEmpty) {
-        gpLogNextEmpty->timestamp = gLogTime.read_us();
+        gpLogNextEmpty->timestamp = gLogTime.read_us() + gLogTimeOffset;
         gpLogNextEmpty->event = (int) event;
         gpLogNextEmpty->parameter = parameter;
         if (gpLogNextEmpty < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
