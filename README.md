@@ -56,5 +56,11 @@ The pattern of usage is as follows:
 7. To print out the logging data that has been captured since `initLog()` to the console,
    call `printLog()`. Note that if no file system is available only the logging data
    that could be stored in the `LOG_STORE_SIZE` buffer will be printed.
+   
+8. An application can call `getLog()` to retrieve log items (in FIFO order) from RAM storage,
+   removing them from the store in doing so.  The application may then do what it wishes
+   to archive/display those log items. If you chose to do this then you should not use the
+   logging file system storage mechanism since that moves data items from RAM storage to file
+   system and you will get very confused.
 
-Note: there is no semaphore protection on the `LOG()` call since the priority is to log quickly and efficiently.  Hence it is possible for two `LOG()` calls to collide resulting in those particular log calls being mangled.  This will happen very rarely (I've never seen it happen in fact) but be aware that it is a possibility.
+Note: there is no mutex protection on the `LOG()` call since the priority is to log quickly and efficiently.  Hence it is possible for two `LOG()` calls to collide resulting in those particular log calls being mangled.  This will happen very rarely (I've never seen it happen in fact) but be aware that it is a possibility.  If you don't care about speed so much then call `LOGX()` instead; this _will_ mutex-lock.
