@@ -327,6 +327,33 @@ void resumeLog(unsigned int intervalUSeconds)
     gLogTime.start();
 }
 
+// Get the first N log entries.
+int getLog(LogEntry *pEntries, int numEntries)
+{
+    const LogEntry *pItem;
+    int itemCount;
+
+    gLogMutex.lock();
+
+    itemCount = 0;
+    pItem = gpLogFirstFull;
+    while ((pItem != gpLogNextEmpty) &&
+           (itemCount < numEntries)) {
+        memcpy(pEntries, pItem, sizeof(*pEntries));
+        itemCount++;
+        pEntries++;
+        pItem++;
+        if (pItem >= gpLog + MAX_NUM_LOG_ENTRIES) {
+            pItem = gpLog;
+        }
+        gpLogFirstFull = pItem;
+    }
+
+    gLogMutex.unlock();
+
+    return itemCount;
+}
+
 // Initialise the log file.
 bool initLogFile(const char *pPath)
 {
@@ -500,6 +527,36 @@ void LOG(LogEvent event, int parameter)
             }
         }
     }
+}
+
+// Log an event plus parameter, this time with mutex.
+// Note: use this version if you don't care about speed
+// so much
+void LOGX(LogEvent event, int parameter)
+{
+    gLogMutex.lock();
+    if (gpLogNextEmpty) {
+        gpLogNextEmpty->timestamp = gLogTime.read_us() + gLogTimeOffset;
+        gpLogNextEmpty->event = (int) event;
+        gpLogNextEmpty->parameter = parameter;
+        if (gpLogNextEmpty < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
+            gpLogNextEmpty++;
+        } else {
+            gpLogNextEmpty = gpLog;
+        }
+
+        if (gpLogNextEmpty == gpLogFirstFull) {
+            // Logging has wrapped, so move the
+            // first pointer on to reflect the
+            // overwrite
+            if (gpLogFirstFull < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
+                gpLogFirstFull++;
+            } else {
+                gpLogFirstFull = gpLog;
+            }
+        }
+    }
+    gLogMutex.unlock();
 }
 
 // Flush the log file.

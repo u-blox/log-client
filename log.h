@@ -79,6 +79,18 @@ extern "C" {
  */
 void LOG(LogEvent event, int parameter);
 
+/** Log an event plus parameter, employing
+ * a mutex to protect the log contents.
+ * This will take longer, potentially a lot
+ * longer, than LOG() so call this only
+ * in applications where you don't care
+ * about speed.
+ *
+ * @param event     the event.
+ * @param parameter the parameter.
+ */
+void LOGX(LogEvent event, int parameter);
+
 /** Initialise logging.
  *
  * @param pBuffer    must point to LOG_STORE_SIZE bytes of storage.
@@ -97,6 +109,22 @@ void suspendLog();
  *         use 0.
  */
 void resumeLog(unsigned int intervalUSeconds);
+
+/** Get the first N log entries that are in RAM, removing
+ * them from the log storage.  This probably of
+ * no use to you if you are storing log entries
+ * to a log file with initLogFile()/writeLog(), it's
+ * really for the use case where the application
+ * wants to process the LOG items in its own
+ * sweet way.
+ *
+ * @param pEntries   a pointer to the place to store
+ *                   the entries.
+ * @param numEntries the number of entries pointed to
+ *                   by pEntries.
+ * @return           the number of entries returned.
+ */
+int getLog(LogEntry *pEntries, int numEntries);
 
 /** Start logging to file.
  *
