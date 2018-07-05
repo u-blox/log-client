@@ -15,6 +15,7 @@
  */
 
 #include "mbed.h"
+#include "errno.h"
 #include "log.h"
 
 /* ----------------------------------------------------------------
@@ -53,9 +54,6 @@ typedef struct {
 /* ----------------------------------------------------------------
  * VARIABLES
  * -------------------------------------------------------------- */
-
-// To obtain file system errors.
-extern int errno;
 
 // The strings associated with the enum values.
 extern const char *gLogStrings[];
