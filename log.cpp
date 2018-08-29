@@ -352,6 +352,29 @@ int getLog(LogEntry *pEntries, int numEntries)
     return itemCount;
 }
 
+// Get the number of log entries.
+int getNumLogEntries()
+{
+    const LogEntry *pItem;
+    int itemCount;
+
+    gLogMutex.lock();
+
+    itemCount = 0;
+    pItem = gpLogFirstFull;
+    while (pItem != gpLogNextEmpty) {
+        itemCount++;
+        pItem++;
+        if (pItem >= gpLog + MAX_NUM_LOG_ENTRIES) {
+            pItem = gpLog;
+        }
+    }
+
+    gLogMutex.unlock();
+
+    return itemCount;
+}
+
 // Initialise the log file.
 bool initLogFile(const char *pPath)
 {

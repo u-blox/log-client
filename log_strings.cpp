@@ -59,6 +59,6 @@ const char *gLogStrings[] = {
 #include "log_strings_app.h"
 };
 
-const int gNumLogStrings = sizeof (gLogStrings) / sizeof (gLogStrings[0]);
+extern const int gNumLogStrings = sizeof (gLogStrings) / sizeof (gLogStrings[0]);
 
 // End of file

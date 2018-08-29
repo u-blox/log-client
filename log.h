@@ -126,6 +126,13 @@ void resumeLog(unsigned int intervalUSeconds);
  */
 int getLog(LogEntry *pEntries, int numEntries);
 
+/** Get the number of log entries currently in RAM;
+ * useful if the application wants to manage LOG items,
+ * rather than having them written to file by this log
+ * client.
+ */
+int getNumLogEntries();
+
 /** Start logging to file.
  *
  * @param pPath the path at which to create the log files.
