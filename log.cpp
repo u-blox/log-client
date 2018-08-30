@@ -77,6 +77,9 @@ static LogEntry *gpLog = NULL;
 static LogEntry *gpLogNextEmpty = NULL;
 static LogEntry const *gpLogFirstFull = NULL;
 
+// A count of the number of log items.
+static int gNumLogItems = 0;
+
 // A logging timestamp.
 static Timer gLogTime;
 
@@ -309,6 +312,7 @@ void initLog(void *pBuffer)
     gpLog = (LogEntry * ) pBuffer;
     gpLogNextEmpty = gpLog;
     gpLogFirstFull = gpLog;
+    gNumLogItems = 0;
     LOG(EVENT_LOG_START, LOG_VERSION);
 }
 
@@ -341,6 +345,9 @@ int getLog(LogEntry *pEntries, int numEntries)
         itemCount++;
         pEntries++;
         pItem++;
+        if (gNumLogItems > 0) {
+            gNumLogItems--;
+        }
         if (pItem >= gpLog + MAX_NUM_LOG_ENTRIES) {
             pItem = gpLog;
         }
@@ -355,24 +362,7 @@ int getLog(LogEntry *pEntries, int numEntries)
 // Get the number of log entries.
 int getNumLogEntries()
 {
-    const LogEntry *pItem;
-    int itemCount;
-
-    gLogMutex.lock();
-
-    itemCount = 0;
-    pItem = gpLogFirstFull;
-    while (pItem != gpLogNextEmpty) {
-        itemCount++;
-        pItem++;
-        if (pItem >= gpLog + MAX_NUM_LOG_ENTRIES) {
-            pItem = gpLog;
-        }
-    }
-
-    gLogMutex.unlock();
-
-    return itemCount;
+    return gNumLogItems;
 }
 
 // Initialise the log file.
@@ -546,6 +536,8 @@ void LOG(LogEvent event, int parameter)
             } else {
                 gpLogFirstFull = gpLog;
             }
+        } else {
+            gNumLogItems++;
         }
     }
 }
@@ -575,6 +567,8 @@ void LOGX(LogEvent event, int parameter)
             } else {
                 gpLogFirstFull = gpLog;
             }
+        } else {
+            gNumLogItems++;
         }
     }
     gLogMutex.unlock();
@@ -603,6 +597,9 @@ void writeLog()
                     gpLogFirstFull++;
                 } else {
                     gpLogFirstFull = gpLog;
+                }
+                if (gNumLogItems > 0) {
+                    gNumLogItems--;
                 }
             }
             if (gNumWrites > LOGGING_NUM_WRITES_BEFORE_FLUSH) {
