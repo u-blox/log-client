@@ -83,6 +83,9 @@ static int gNumLogItems = 0;
 // A logging timestamp.
 static Timer gLogTime;
 
+// Remember the last logging timestamp.
+static unsigned int gLastLogTime;
+
 // An offset in the logging timestamp (may be non-zero
 // if logging has been suspended)
 static unsigned int gLogTimeOffset = 0;
@@ -307,6 +310,7 @@ void logFileUploadCallback()
 // Initialise logging.
 void initLog(void *pBuffer)
 {
+    gLastLogTime = 0;
     gLogTime.reset();
     gLogTime.start();
     gpLog = (LogEntry * ) pBuffer;
@@ -517,8 +521,18 @@ void stopLogFileUpload()
 // logging corruption which may occur
 void LOG(LogEvent event, int parameter)
 {
+    unsigned int timeStamp = ((unsigned int) gLogTime.read_us()) + gLogTimeOffset;
+
     if (gpLogNextEmpty) {
-        gpLogNextEmpty->timestamp = gLogTime.read_us() + gLogTimeOffset;
+        // Check if the timestamp has wrapped and
+        // insert a log point before this one if that's the
+        // case (coding gods: please excuse my recursion)
+        if (timeStamp < gLastLogTime) {
+            gLastLogTime = timeStamp;
+            LOG(EVENT_LOG_TIME_WRAP, timeStamp);
+        }
+        gLastLogTime = timeStamp;
+        gpLogNextEmpty->timestamp = timeStamp;
         gpLogNextEmpty->event = (int) event;
         gpLogNextEmpty->parameter = parameter;
         if (gpLogNextEmpty < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
@@ -547,9 +561,21 @@ void LOG(LogEvent event, int parameter)
 // so much
 void LOGX(LogEvent event, int parameter)
 {
+    unsigned int timeStamp;
+
     gLogMutex.lock();
+    timeStamp = ((unsigned int) gLogTime.read_us()) + gLogTimeOffset;
+
     if (gpLogNextEmpty) {
-        gpLogNextEmpty->timestamp = gLogTime.read_us() + gLogTimeOffset;
+        // Check if the timestamp has wrapped and
+        // insert a log point before this one if that's the
+        // case (coding gods: please excuse my recursion)
+        if (timeStamp < gLastLogTime) {
+            gLastLogTime = timeStamp;
+            LOG(EVENT_LOG_TIME_WRAP, timeStamp);
+        }
+        gLastLogTime = timeStamp;
+        gpLogNextEmpty->timestamp = timeStamp;
         gpLogNextEmpty->event = (int) event;
         gpLogNextEmpty->parameter = parameter;
         if (gpLogNextEmpty < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
@@ -571,6 +597,7 @@ void LOGX(LogEvent event, int parameter)
             gNumLogItems++;
         }
     }
+
     gLogMutex.unlock();
 }
 

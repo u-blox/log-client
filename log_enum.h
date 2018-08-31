@@ -7,9 +7,11 @@ extern "C" {
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // IMPORTANT: increment this variable if you make ANY changes
-// to the enum below
+// to the enum below and add a description of what's changed.
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#define LOG_VERSION 0
+// LOG_VERSION 0: initial implementation
+// LOG_VERSION 1: add EVENT_LOG_TIME_WRAP
+#define LOG_VERSION 1
 
 // The possible events for the RAM log
 // If you add an item here, don't forget to
@@ -21,6 +23,7 @@ typedef enum {
     EVENT_CURRENT_TIME_UTC,
     EVENT_LOG_START,
     EVENT_LOG_STOP,
+    EVENT_LOG_TIME_WRAP,
     EVENT_LOG_FILES_TO_UPLOAD,
     EVENT_LOG_UPLOAD_STARTING,
     EVENT_LOG_FILE_BYTE_COUNT,

@@ -10,6 +10,7 @@ const char *gLogStrings[] = {
     "  CURRENT_TIME_UTC",
     "  LOG_START",
     "  LOG_STOP",
+    "  LOG_TIME_WRAP",
     "  LOG_FILES_TO_UPLOAD",
     "  LOG_UPLOAD_STARTING",
     "  LOG_FILE_BYTE_COUNT",
