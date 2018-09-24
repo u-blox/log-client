@@ -535,6 +535,9 @@ void LOG(LogEvent event, int parameter)
         gpLogNextEmpty->timestamp = timeStamp;
         gpLogNextEmpty->event = (int) event;
         gpLogNextEmpty->parameter = parameter;
+#ifdef LOG_PRINT_IMMEDIATELY
+        printLogItem(gpLogNextEmpty, 0);
+#endif
         if (gpLogNextEmpty < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
             gpLogNextEmpty++;
         } else {
@@ -578,6 +581,9 @@ void LOGX(LogEvent event, int parameter)
         gpLogNextEmpty->timestamp = timeStamp;
         gpLogNextEmpty->event = (int) event;
         gpLogNextEmpty->parameter = parameter;
+#ifdef LOG_PRINT_IMMEDIATELY
+        printLogItem(gpLogNextEmpty, 0);
+#endif
         if (gpLogNextEmpty < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
             gpLogNextEmpty++;
         } else {
@@ -699,7 +705,6 @@ void printLog()
 
     // Print the log items remaining in RAM
     pItem = gpLogFirstFull;
-    x = 0;
     while (pItem != gpLogNextEmpty) {
         printLogItem(pItem, x);
         x++;
