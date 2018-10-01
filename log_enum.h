@@ -11,7 +11,14 @@ extern "C" {
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // LOG_VERSION 0: initial implementation
 // LOG_VERSION 1: add EVENT_LOG_TIME_WRAP
-#define LOG_VERSION 1
+// LOG_VERSION 2: add EVENT_LOG_OVERWRITE_STARTED and
+//                EVENT_LOG_OVERWRITE_ENDED
+// LOG_VERSION 3: remove EVENT_LOG_OVERWRITE_STARTED and
+//                EVENT_LOG_OVERWRITE_ENDED and add
+//                EVENT_LOG_ENTRIES_OVERWRITTEN
+// LOG_VERSION 4: add EVENT_LOG_RESTART
+
+#define LOG_VERSION 4
 
 // The possible events for the RAM log
 // If you add an item here, don't forget to
@@ -22,7 +29,9 @@ typedef enum {
     EVENT_BUILD_TIME_UNIX_FORMAT,
     EVENT_CURRENT_TIME_UTC,
     EVENT_LOG_START,
+    EVENT_LOG_START_AGAIN,
     EVENT_LOG_STOP,
+    EVENT_LOG_ENTRIES_OVERWRITTEN,
     EVENT_LOG_TIME_WRAP,
     EVENT_LOG_FILES_TO_UPLOAD,
     EVENT_LOG_UPLOAD_STARTING,

@@ -60,9 +60,21 @@ typedef struct {
 } LogEntry;
 
 
+/** Type used to store logging context data.
+ */
+typedef struct {
+    unsigned int magicWord;
+    unsigned int version;
+    LogEntry *pLog;
+    LogEntry *pLogNextEmpty;
+    LogEntry const *pLogFirstFull;
+    unsigned int numLogItems;
+    unsigned int logEntriesOverwritten;
+} LogContext;
+
 /** The size of the log store, given the number of entries requested.
  */
-#define LOG_STORE_SIZE (sizeof (LogEntry) * MAX_NUM_LOG_ENTRIES)
+#define LOG_STORE_SIZE (sizeof(LogContext) + (sizeof(LogEntry) * MAX_NUM_LOG_ENTRIES))
 
 /* ----------------------------------------------------------------
  * FUNCTIONS
@@ -94,6 +106,9 @@ void LOGX(LogEvent event, int parameter);
 /** Initialise logging.
  *
  * @param pBuffer    must point to LOG_STORE_SIZE bytes of storage.
+ *                   If pBuffer is in RAM which is not initialised
+ *                   at a reset then logging to RAM will also
+ *                   survive across a reset.
  */
 void initLog(void *pBuffer);
 

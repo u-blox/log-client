@@ -59,6 +59,11 @@ typedef struct {
 extern const char *gLogStrings[];
 extern const int gNumLogStrings;
 
+// A pointer to the logging context data.
+// This is stored at the start of the logging
+// buffer area
+static LogContext *gpContext = NULL;
+
 // Mutex to arbitrate logging.
 // The callback which writes logging to disk
 // will attempt to lock this mutex while the
@@ -72,14 +77,6 @@ static Mutex gLogMutex;
 // The number of calls to writeLog().
 static int gNumWrites = 0;
 
-// A logging buffer.
-static LogEntry *gpLog = NULL;
-static LogEntry *gpLogNextEmpty = NULL;
-static LogEntry const *gpLogFirstFull = NULL;
-
-// A count of the number of log items.
-static int gNumLogItems = 0;
-
 // A logging timestamp.
 static Timer gLogTime;
 
@@ -88,7 +85,7 @@ static unsigned int gLastLogTime;
 
 // An offset in the logging timestamp (may be non-zero
 // if logging has been suspended)
-static unsigned int gLogTimeOffset = 0;
+static unsigned int gLogTimeOffset;
 
 // A file to write logs to.
 static FILE *gpFile = NULL;
@@ -310,14 +307,31 @@ void logFileUploadCallback()
 // Initialise logging.
 void initLog(void *pBuffer)
 {
+    bool freshStart = false;
+
+    gpContext = (LogContext *) pBuffer;
+    // If the context is uninitialised, initialise it
+    if ((gpContext->magicWord != 0x123456) ||
+        (gpContext->version != LOG_VERSION)){
+        freshStart = true;
+        memset(gpContext, 0, sizeof(*gpContext));
+        gpContext->version = LOG_VERSION;
+        gpContext->pLog = (LogEntry * ) ((char *) pBuffer + sizeof(*gpContext));
+        gpContext->pLogNextEmpty = gpContext->pLog;
+        gpContext->pLogFirstFull = gpContext->pLog;
+        gpContext->numLogItems = 0;
+        gpContext->logEntriesOverwritten = 0;
+        gpContext->magicWord = 0x123456;
+    }
     gLastLogTime = 0;
     gLogTime.reset();
     gLogTime.start();
-    gpLog = (LogEntry * ) pBuffer;
-    gpLogNextEmpty = gpLog;
-    gpLogFirstFull = gpLog;
-    gNumLogItems = 0;
-    LOG(EVENT_LOG_START, LOG_VERSION);
+    gLogTimeOffset = 0;
+    if (freshStart) {
+        LOG(EVENT_LOG_START, LOG_VERSION);
+    } else {
+        LOG(EVENT_LOG_START_AGAIN, LOG_VERSION);
+    }
 }
 
 // Suspend logging.
@@ -342,20 +356,31 @@ int getLog(LogEntry *pEntries, int numEntries)
     gLogMutex.lock();
 
     itemCount = 0;
-    pItem = gpLogFirstFull;
-    while ((pItem != gpLogNextEmpty) &&
+    pItem = gpContext->pLogFirstFull;
+    while ((pItem != gpContext->pLogNextEmpty) &&
            (itemCount < numEntries)) {
-        memcpy(pEntries, pItem, sizeof(*pEntries));
-        itemCount++;
-        pEntries++;
-        pItem++;
-        if (gNumLogItems > 0) {
-            gNumLogItems--;
+        if (gpContext->logEntriesOverwritten > 0) {
+            LogEntry insert = {pItem->timestamp,
+                               EVENT_LOG_ENTRIES_OVERWRITTEN,
+                               (int) gpContext->logEntriesOverwritten};
+            memcpy(pEntries, &insert, sizeof(*pEntries));
+            itemCount++;
+            pEntries++;
+            gpContext->logEntriesOverwritten = 0;
         }
-        if (pItem >= gpLog + MAX_NUM_LOG_ENTRIES) {
-            pItem = gpLog;
+        if (itemCount < numEntries) {
+            memcpy(pEntries, pItem, sizeof(*pEntries));
+            itemCount++;
+            pEntries++;
+            pItem++;
+            if (gpContext->numLogItems > 0) {
+                gpContext->numLogItems--;
+            }
+            if (pItem >= gpContext->pLog + MAX_NUM_LOG_ENTRIES) {
+                pItem = gpContext->pLog;
+            }
+            gpContext->pLogFirstFull = pItem;
         }
-        gpLogFirstFull = pItem;
     }
 
     gLogMutex.unlock();
@@ -366,7 +391,7 @@ int getLog(LogEntry *pEntries, int numEntries)
 // Get the number of log entries.
 int getNumLogEntries()
 {
-    return gNumLogItems;
+    return gpContext->numLogItems;
 }
 
 // Initialise the log file.
@@ -523,7 +548,7 @@ void LOG(LogEvent event, int parameter)
 {
     unsigned int timeStamp = ((unsigned int) gLogTime.read_us()) + gLogTimeOffset;
 
-    if (gpLogNextEmpty) {
+    if (gpContext->pLogNextEmpty) {
         // Check if the timestamp has wrapped and
         // insert a log point before this one if that's the
         // case (coding gods: please excuse my recursion)
@@ -532,29 +557,30 @@ void LOG(LogEvent event, int parameter)
             LOG(EVENT_LOG_TIME_WRAP, timeStamp);
         }
         gLastLogTime = timeStamp;
-        gpLogNextEmpty->timestamp = timeStamp;
-        gpLogNextEmpty->event = (int) event;
-        gpLogNextEmpty->parameter = parameter;
+        gpContext->pLogNextEmpty->timestamp = timeStamp;
+        gpContext->pLogNextEmpty->event = (int) event;
+        gpContext->pLogNextEmpty->parameter = parameter;
 #ifdef LOG_PRINT_IMMEDIATELY
-        printLogItem(gpLogNextEmpty, 0);
+        printLogItem(gpContext->pLogNextEmpty, 0);
 #endif
-        if (gpLogNextEmpty < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
-            gpLogNextEmpty++;
+        if (gpContext->pLogNextEmpty < gpContext->pLog + MAX_NUM_LOG_ENTRIES - 1) {
+            gpContext->pLogNextEmpty++;
         } else {
-            gpLogNextEmpty = gpLog;
+            gpContext->pLogNextEmpty = gpContext->pLog;
         }
 
-        if (gpLogNextEmpty == gpLogFirstFull) {
+        if (gpContext->pLogNextEmpty == gpContext->pLogFirstFull) {
             // Logging has wrapped, so move the
             // first pointer on to reflect the
             // overwrite
-            if (gpLogFirstFull < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
-                gpLogFirstFull++;
+            if (gpContext->pLogFirstFull < gpContext->pLog + MAX_NUM_LOG_ENTRIES - 1) {
+                gpContext->pLogFirstFull++;
             } else {
-                gpLogFirstFull = gpLog;
+                gpContext->pLogFirstFull = gpContext->pLog;
             }
+            gpContext->logEntriesOverwritten++;
         } else {
-            gNumLogItems++;
+            gpContext->numLogItems++;
         }
     }
 }
@@ -569,38 +595,39 @@ void LOGX(LogEvent event, int parameter)
     gLogMutex.lock();
     timeStamp = ((unsigned int) gLogTime.read_us()) + gLogTimeOffset;
 
-    if (gpLogNextEmpty) {
+    if (gpContext->pLogNextEmpty) {
         // Check if the timestamp has wrapped and
         // insert a log point before this one if that's the
-        // case (coding gods: please excuse my recursion)
+        // case
         if (timeStamp < gLastLogTime) {
             gLastLogTime = timeStamp;
             LOG(EVENT_LOG_TIME_WRAP, timeStamp);
         }
         gLastLogTime = timeStamp;
-        gpLogNextEmpty->timestamp = timeStamp;
-        gpLogNextEmpty->event = (int) event;
-        gpLogNextEmpty->parameter = parameter;
+        gpContext->pLogNextEmpty->timestamp = timeStamp;
+        gpContext->pLogNextEmpty->event = (int) event;
+        gpContext->pLogNextEmpty->parameter = parameter;
 #ifdef LOG_PRINT_IMMEDIATELY
-        printLogItem(gpLogNextEmpty, 0);
+        printLogItem(gpContext->pLogNextEmpty, 0);
 #endif
-        if (gpLogNextEmpty < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
-            gpLogNextEmpty++;
+        if (gpContext->pLogNextEmpty < gpContext->pLog + MAX_NUM_LOG_ENTRIES - 1) {
+            gpContext->pLogNextEmpty++;
         } else {
-            gpLogNextEmpty = gpLog;
+            gpContext->pLogNextEmpty = gpContext->pLog;
         }
 
-        if (gpLogNextEmpty == gpLogFirstFull) {
+        if (gpContext->pLogNextEmpty == gpContext->pLogFirstFull) {
             // Logging has wrapped, so move the
             // first pointer on to reflect the
             // overwrite
-            if (gpLogFirstFull < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
-                gpLogFirstFull++;
+            if (gpContext->pLogFirstFull < gpContext->pLog + MAX_NUM_LOG_ENTRIES - 1) {
+                gpContext->pLogFirstFull++;
             } else {
-                gpLogFirstFull = gpLog;
+                gpContext->pLogFirstFull = gpContext->pLog;
             }
+            gpContext->logEntriesOverwritten++;
         } else {
-            gNumLogItems++;
+            gpContext->numLogItems++;
         }
     }
 
@@ -624,15 +651,22 @@ void writeLog()
     if (gLogMutex.trylock()) {
         if (gpFile != NULL) {
             gNumWrites++;
-            while (gpLogNextEmpty != gpLogFirstFull) {
-                fwrite(gpLogFirstFull, sizeof(LogEntry), 1, gpFile);
-                if (gpLogFirstFull < gpLog + MAX_NUM_LOG_ENTRIES - 1) {
-                    gpLogFirstFull++;
-                } else {
-                    gpLogFirstFull = gpLog;
+            while (gpContext->pLogNextEmpty != gpContext->pLogFirstFull) {
+                if (gpContext->logEntriesOverwritten > 0) {
+                    LogEntry insert = {gpContext->pLogFirstFull->timestamp,
+                                       EVENT_LOG_ENTRIES_OVERWRITTEN,
+                                       (int) gpContext->logEntriesOverwritten};
+                    fwrite(&insert, sizeof(insert), 1, gpFile);
+                    gpContext->logEntriesOverwritten = 0;
                 }
-                if (gNumLogItems > 0) {
-                    gNumLogItems--;
+                fwrite(gpContext->pLogFirstFull, sizeof(LogEntry), 1, gpFile);
+                if (gpContext->pLogFirstFull < gpContext->pLog + MAX_NUM_LOG_ENTRIES - 1) {
+                    gpContext->pLogFirstFull++;
+                } else {
+                    gpContext->pLogFirstFull = gpContext->pLog;
+                }
+                if (gpContext->numLogItems > 0) {
+                    gpContext->numLogItems--;
                 }
             }
             if (gNumWrites > LOGGING_NUM_WRITES_BEFORE_FLUSH) {
@@ -670,7 +704,7 @@ void deinitLog()
 // Print out the log.
 void printLog()
 {
-    const LogEntry *pItem = gpLogNextEmpty;
+    const LogEntry *pItem = gpContext->pLogNextEmpty;
     LogEntry fileItem;
     bool loggingToFile = false;
     FILE *pFile = gpFile;
@@ -704,13 +738,13 @@ void printLog()
     }
 
     // Print the log items remaining in RAM
-    pItem = gpLogFirstFull;
-    while (pItem != gpLogNextEmpty) {
+    pItem = gpContext->pLogFirstFull;
+    while (pItem != gpContext->pLogNextEmpty) {
         printLogItem(pItem, x);
         x++;
         pItem++;
-        if (pItem >= gpLog + MAX_NUM_LOG_ENTRIES) {
-            pItem = gpLog;
+        if (pItem >= gpContext->pLog + MAX_NUM_LOG_ENTRIES) {
+            pItem = gpContext->pLog;
         }
     }
 
