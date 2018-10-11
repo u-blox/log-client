@@ -23,12 +23,15 @@ extern "C" {
 // The possible events for the RAM log
 // If you add an item here, don't forget to
 // add it to gLogEventStrings (in log_strings.cpp) also.
+// Values at the start are hard-coded so that they
+// can be picked up by parsers without having to
+// go to the effort of decoding the log data.
 typedef enum {
     // Log points required for all builds, do not change
-    EVENT_NONE,
-    EVENT_BUILD_TIME_UNIX_FORMAT,
-    EVENT_CURRENT_TIME_UTC,
-    EVENT_LOG_START,
+    EVENT_NONE = 0,
+    EVENT_BUILD_TIME_UNIX_FORMAT = 1,
+    EVENT_CURRENT_TIME_UTC = 2,
+    EVENT_LOG_START = 3,
     EVENT_LOG_START_AGAIN,
     EVENT_LOG_STOP,
     EVENT_LOG_ENTRIES_OVERWRITTEN,
