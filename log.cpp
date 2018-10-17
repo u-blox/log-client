@@ -40,6 +40,11 @@
 // the overhang can be lost
 #define LOGGING_TCP_BUFFER_SIZE (20 * sizeof (LogEntry))
 
+#if defined (MBED_CONFIG_APP_LOG_PRINT_IMMEDIATELY) && \
+    MBED_CONFIG_APP_LOG_PRINT_IMMEDIATELY
+#define LOG_PRINT_IMMEDIATELY
+#endif
+
 /* ----------------------------------------------------------------
  * TYPES
  * -------------------------------------------------------------- */
