@@ -40,9 +40,20 @@
 // the overhang can be lost
 #define LOGGING_TCP_BUFFER_SIZE (20 * sizeof (LogEntry))
 
-#if defined (MBED_CONF_APP_LOG_PRINT_IMMEDIATELY) && \
-    MBED_CONF_APP_LOG_PRINT_IMMEDIATELY
-#define LOG_PRINT_IMMEDIATELY
+// Printf() logging data as well as putting it in the
+// logging system
+#if defined(MBED_CONF_APP_LOG_PRINT) && \
+    MBED_CONF_APP_LOG_PRINT
+#define LOG_PRINT
+#endif
+
+// Only printf() the logging data don't put it in the
+// logging system at all (can sometimes be useful
+// where you want local debug but don't want to
+// load the rest of the system with logging data)
+#if defined (MBED_CONF_APP_LOG_PRINT_ONLY) && \
+    MBED_CONF_APP_LOG_PRINT_ONLY
+#define LOG_PRINT_ONLY
 #endif
 
 /* ----------------------------------------------------------------
@@ -565,9 +576,10 @@ void LOG(LogEvent event, int parameter)
         gpContext->pLogNextEmpty->timestamp = timeStamp;
         gpContext->pLogNextEmpty->event = (int) event;
         gpContext->pLogNextEmpty->parameter = parameter;
-#ifdef LOG_PRINT_IMMEDIATELY
+#if defined(LOG_PRINT) || defined(LOG_PRINT_ONLY)
         printLogItem(gpContext->pLogNextEmpty, 0);
 #endif
+#ifndef LOG_PRINT_ONLY
         if (gpContext->pLogNextEmpty < gpContext->pLog + MAX_NUM_LOG_ENTRIES - 1) {
             gpContext->pLogNextEmpty++;
         } else {
@@ -587,6 +599,7 @@ void LOG(LogEvent event, int parameter)
         } else {
             gpContext->numLogItems++;
         }
+#endif
     }
 }
 
@@ -612,9 +625,10 @@ void LOGX(LogEvent event, int parameter)
         gpContext->pLogNextEmpty->timestamp = timeStamp;
         gpContext->pLogNextEmpty->event = (int) event;
         gpContext->pLogNextEmpty->parameter = parameter;
-#ifdef LOG_PRINT_IMMEDIATELY
+#if defined(LOG_PRINT) || defined(LOG_PRINT_ONLY)
         printLogItem(gpContext->pLogNextEmpty, 0);
 #endif
+#ifndef LOG_PRINT_ONLY
         if (gpContext->pLogNextEmpty < gpContext->pLog + MAX_NUM_LOG_ENTRIES - 1) {
             gpContext->pLogNextEmpty++;
         } else {
@@ -634,6 +648,7 @@ void LOGX(LogEvent event, int parameter)
         } else {
             gpContext->numLogItems++;
         }
+#endif
     }
 
     gLogMutex.unlock();
